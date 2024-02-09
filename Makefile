@@ -55,7 +55,11 @@ make-translations:
 #       just a symlink to /usr/bin, thanks to UsrMove change. Instead, we just
 #       use virtual provides for /usr/sbin/<utility> in specfile (for backward
 #       compatibility).
-install: install-binaries install-translations install-etc install-usr install-network-scripts install-man install-post
+ifdef NO_NETWORK_SCRIPTS
+install: install-binaries install-translations install-etc install-usr install-man install-post
+else
+install: install-binaries install-translations install-etc-all install-usr install-network-scripts install-man-all install-post
+endif
 
 
 install-binaries:
@@ -65,12 +69,21 @@ install-translations:
 	$(MAKE) install -C po  DESTDIR=$(DESTDIR) prefix=$(prefix) bindir=$(bindir) libdir=$(libdir) \
 	                                          datarootdir=$(datarootdir) datadir=$(datadir) sysconfdir=$(sysconfdir)
 
+install-etc-all: install-etc install-etc-network
 
 # NOTE: We are removing auxiliary symlink at the beginning.
 install-etc:
 	rm -f etc/sysconfig/network-scripts
-	install -m 0755 -d $(DESTDIR)$(sysconfdir)
-	cp -a        etc/* $(DESTDIR)$(sysconfdir)/
+	install -m 0755 -d      $(DESTDIR)$(sysconfdir)
+	install -m 0755 -d      $(DESTDIR)$(sysconfdir)/rc.d/init.d
+	install -m 0755 -d      $(DESTDIR)$(sysconfdir)/sysconfig
+	install -m 0644 etc/rwtab                  $(DESTDIR)$(sysconfdir)/
+	install -m 0644 etc/statetab               $(DESTDIR)$(sysconfdir)/
+	install -m 0644 etc/rc.d/init.d/functions  $(DESTDIR)$(sysconfdir)/rc.d/init.d/
+	install -m 0644 etc/sysconfig/*            $(DESTDIR)$(sysconfdir)/sysconfig/
+
+install-etc-network:
+	install -m 0755 -D etc/rc.d/init.d/network $(DESTDIR)$(sysconfdir)/rc.d/init.d/
 
 install-usr:
 	install -m 0755 -d $(DESTDIR)$(prefix)
@@ -82,11 +95,19 @@ install-network-scripts: install-usr install-etc
 	ln -srf $(DESTDIR)$(sysconfdir)/sysconfig/network-scripts/{ifup-ippp,ifup-isdn}
 	ln -srf $(DESTDIR)$(sysconfdir)/sysconfig/network-scripts/{ifdown-ippp,ifdown-isdn}
 
+install-man-all: install-man install-network-scripts-man
+
 install-man: install-usr
 	install -m 0755 -d      $(DESTDIR)$(mandir)/man1
 	install -m 0755 -d      $(DESTDIR)$(mandir)/man8
-	install -m 0644 man/*.1 $(DESTDIR)$(mandir)/man1
-	install -m 0644 man/*.8 $(DESTDIR)$(mandir)/man8
+	install -m 0644 man/consoletype.1 $(DESTDIR)$(mandir)/man1
+	install -m 0644 man/genhostid.1   $(DESTDIR)$(mandir)/man1
+	install -m 0644 man/usleep.1      $(DESTDIR)$(mandir)/man1
+	install -m 0644 man/service.8     $(DESTDIR)$(mandir)/man8
+
+install-network-scripts-man:
+	install -m 0644 man/ifup.8        $(DESTDIR)$(mandir)/man8
+	install -m 0644 man/usernetctl.8  $(DESTDIR)$(mandir)/man8
 
 # Initscripts still ship some empty directories necessary for system to function
 # correctly...
